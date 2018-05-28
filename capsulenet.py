@@ -2,7 +2,6 @@
 Keras implementation of CapsNet in Hinton's paper Dynamic Routing Between Capsules.
 The current version maybe only works for TensorFlow backend. Actually it will be straightforward to re-write to TF code.
 Adopting to other backends should be easy, but I have not tested this. 
-
 Usage:
        python CapsNet.py
        python CapsNet.py --epochs 100
@@ -107,12 +106,11 @@ def train(model, data, args):
                   loss_weights=[1., args.lam_recon],
                   metrics={'capsnet': 'accuracy'})
 
-    """
+    
     # Training without data augmentation:
     model.fit([x_train, y_train], [y_train, x_train], batch_size=args.batch_size, epochs=args.epochs,
               validation_data=[[x_test, y_test], [y_test, x_test]], callbacks=[log, tb, checkpoint, lr_decay])
     """
-
     # Begin: Training with data augmentation ---------------------------------------------------------------------#
     def train_generator(x, y, batch_size, shift_fraction=0.):
         train_datagen = ImageDataGenerator(width_shift_range=shift_fraction,
@@ -130,7 +128,7 @@ def train(model, data, args):
                         validation_data=[[x_test, y_test], [y_test, x_test]],
                         callbacks=[log, tb, checkpoint, lr_decay])
     # End: Training with data augmentation -----------------------------------------------------------------------#
-
+    """
     model.save_weights(args.save_dir + '/trained_model.h5')
     print('Trained model saved to \'%s/trained_model.h5\'' % args.save_dir)
 
@@ -174,15 +172,15 @@ def load_mnist():
 
 def read_data():
   import cv2
-  data = pd.read_csv('subset.csv')
+  data = pd.read_csv('fer2013.csv')
   width, height = 48, 48
   pixels = data['pixels'].tolist() # 1
   faces = []
   for pixel_sequence in pixels:
     face = [int(pixel) for pixel in pixel_sequence.split(' ')] # 2
     face = np.asarray(face).reshape(width, height) # 3
-    face = face / 255.0 # 4
-    face = cv2.resize(face.astype('uint8'), (width, height)) # 5
+    #face = face / 255.0 # 4
+    face = cv2.resize(face.astype('float32'), (width, height)) # 5
     faces.append(face.astype('float32'))
 
   faces = np.asarray(faces)
@@ -190,6 +188,9 @@ def read_data():
   emotions = pd.get_dummies(data['emotion']).as_matrix() # 7
   x_train, x_test, y_train, y_test = train_test_split(faces, emotions, test_size=0.1, random_state=42)
   #X_train, X_val, y_train, y_val = train_test_split(X_train, y_train, test_size=0.1, random_state=41)
+  x_train = x_train.reshape(-1, 48, 48, 1).astype('float32') / 255.
+  x_test = x_test.reshape(-1, 48, 48, 1).astype('float32') / 255.
+  #print (y_test[0], 'shape', y_test.shape)
   return (x_train, y_train), (x_test, y_test)
 
 
@@ -202,11 +203,11 @@ if __name__ == "__main__":
     # setting the hyper parameters
     import argparse
     parser = argparse.ArgumentParser()
-    parser.add_argument('--batch_size', default=500, type=int)
-    parser.add_argument('--epochs', default=1, type=int)
+    parser.add_argument('--batch_size', default=100, type=int)
+    parser.add_argument('--epochs', default=100, type=int)
     parser.add_argument('--lam_recon', default=0.392, type=float)  # 784 * 0.0005, paper uses sum of SE, here uses MSE
     parser.add_argument('--num_routing', default=3, type=int)  # num_routing should > 0
-    parser.add_argument('--shift_fraction', default=0.1, type=float)
+    parser.add_argument('--shift_fraction', default=0.2, type=float)
     parser.add_argument('--debug', default=0, type=int)  # debug>0 will save weights by TensorBoard
     parser.add_argument('--save_dir', default='./result')
     parser.add_argument('--is_training', default=1, type=int)
